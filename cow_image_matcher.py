@@ -39,12 +39,25 @@ def save_embeddings(embeddings):
     with open(EMBEDDINGS_FILE, "w") as f:
         json.dump(embeddings, f)
 
+# def match_cow(embedding, db):
+#     for name, emb in db.items():
+#         score = cosine_similarity([embedding], [emb])[0][0]
+#         if score > 0.9:
+#             return name, score
+#     return None, None
 def match_cow(embedding, db):
-    for name, emb in db.items():
-        score = cosine_similarity([embedding], [emb])[0][0]
-        if score > 0.9:
-            return name, score
+    for name, emb_list in db.items():
+        if isinstance(emb_list[0], list):  # multiple embeddings
+            for emb in emb_list:
+                score = cosine_similarity([embedding], [emb])[0][0]
+                if score > 0.9:
+                    return name, score
+        else:  # single embedding
+            score = cosine_similarity([embedding], [emb_list])[0][0]
+            if score > 0.9:
+                return name, score
     return None, None
+
 
 # Streamlit UI
 st.title("🐄 Cow Identity Matcher")
@@ -61,7 +74,15 @@ if menu == "Register New Cow":
     if name and image_file:
         image = Image.open(image_file).convert("RGB")
         embedding = get_embedding(image)
-        embeddings[name] = embedding
+        # ✅ Updated: Support multiple embeddings per cow
+        if name in embeddings:
+            # If already list → append; if not, convert to list first
+            if isinstance(embeddings[name][0], list):
+                embeddings[name].append(embedding)
+            else:
+                embeddings[name] = [embeddings[name], embedding]
+        else:
+            embeddings[name] = [embedding]
         save_embeddings(embeddings)
         st.success(f"✅ Cow '{name}' registered successfully!")
 
